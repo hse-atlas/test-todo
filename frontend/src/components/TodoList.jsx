@@ -9,9 +9,9 @@ import {
   Spin,
   notification,
   Flex,
-  Switch
+  Switch,
 } from "antd";
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 
 import { useEffect, useState } from "react";
 import {
@@ -122,6 +122,21 @@ export default function TodoList() {
     }
   };
 
+  const handleLogout = () => {
+    // Удаляем токены из localStorage
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token"); // Если используется
+
+    // Опционально: перенаправляем на страницу входа
+    window.location.href = "/login"; // Или используйте react-router-dom для навигации
+
+    // Уведомление об успешном выходе
+    notification.success({
+      message: "Вы вышли из системы",
+      description: "Ваша сессия завершена",
+    });
+  };
+
   const columns = [
     {
       title: "Title",
@@ -149,10 +164,12 @@ export default function TodoList() {
       align: "center",
       render: (_, record) => (
         <Space>
-          <Button 
-            onClick={() => handleUpdateTask(record.id, { 
-              completed: !record.completed 
-            })}
+          <Button
+            onClick={() =>
+              handleUpdateTask(record.id, {
+                completed: !record.completed,
+              })
+            }
           >
             Toggle
           </Button>
@@ -160,7 +177,7 @@ export default function TodoList() {
             <EditOutlined />
           </Button>
           <Button danger onClick={() => handleDeleteTask(record.id)}>
-          <DeleteOutlined />
+            <DeleteOutlined />
           </Button>
         </Space>
       ),
@@ -171,9 +188,18 @@ export default function TodoList() {
     <div style={{ padding: 20 }}>
       <Flex justify="space-between" align="center">
         <h2>Приветствую {userData?.username || "Гость"}</h2>
-        <Button type="primary" onClick={() => setIsModalOpen(true)}>
-          Add Task
-        </Button>
+        <Space>
+          <Button type="primary" onClick={() => setIsModalOpen(true)}>
+            Add Task
+          </Button>
+          <Button
+            type="default"
+            danger
+            onClick={() => handleLogout()} // Обработчик выхода
+          >
+            Log out
+          </Button>
+        </Space>
       </Flex>
 
       <Spin spinning={loading}>
@@ -218,10 +244,12 @@ export default function TodoList() {
 
           <Form.Item>
             <Flex justify="flex-end" gap={8}>
-              <Button onClick={() => {
-                setIsModalOpen(false);
-                setEditingTask(null);
-              }}>
+              <Button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingTask(null);
+                }}
+              >
                 Cancel
               </Button>
               <Button type="primary" htmlType="submit">
