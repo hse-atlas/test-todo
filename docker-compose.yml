@@ -8,12 +8,14 @@ services:
     networks:
       - app-network
     expose:
-      - "80"  # Открываем порт внутри сети
+      - "8080"  # Изменяем порт внутри контейнера
+    ports:
+      - "8080:80"  # Маппинг внешнего порта 8080 на внутренний 80
 
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - "3001:80"  # Изменяем внешний порт с 3000 на 3001
     networks:
       - app-network
     depends_on:
@@ -24,8 +26,9 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: todo_db  # Добавляем имя базы данных
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_todo_data:/var/lib/postgresql/data  # Изменяем имя тома
     networks:
       - app-network
     healthcheck:
@@ -33,7 +36,7 @@ services:
 
 networks:
   app-network:
-    driver: bridge
+    name: todo_network  # Даем уникальное имя сети
 
 volumes:
-  postgres_data:
+  postgres_todo_data:  # Изменяем имя тома
