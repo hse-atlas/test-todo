@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build: ./app
@@ -8,14 +6,14 @@ services:
     networks:
       - app-network
     expose:
-      - "8080"  # Изменяем порт внутри контейнера
+      - "8888"
     ports:
-      - "8080:80"  # Маппинг внешнего порта 8080 на внутренний 80
+      - "8888:8888"
 
   frontend:
     build: ./frontend
     ports:
-      - "3001:80"  # Изменяем внешний порт с 3000 на 3001
+      - "3456:80"
     networks:
       - app-network
     depends_on:
@@ -26,9 +24,11 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: todo_db  # Добавляем имя базы данных
+      POSTGRES_DB: todo_db
     volumes:
-      - postgres_todo_data:/var/lib/postgresql/data  # Изменяем имя тома
+      - postgres_todo_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
     networks:
       - app-network
     healthcheck:
@@ -36,7 +36,7 @@ services:
 
 networks:
   app-network:
-    name: todo_network  # Даем уникальное имя сети
+    name: todo_network
 
 volumes:
-  postgres_todo_data:  # Изменяем имя тома
+  postgres_todo_data:
