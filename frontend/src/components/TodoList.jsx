@@ -123,18 +123,12 @@ export default function TodoList() {
   };
 
   const handleLogout = () => {
-    // Удаляем токены из localStorage
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token"); // Если используется
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
 
-    // Опционально: перенаправляем на страницу входа
-    window.location.href = "/login"; // Или используйте react-router-dom для навигации
-
-    // Уведомление об успешном выходе
-    notification.success({
-      message: "Вы вышли из системы",
-      description: "Ваша сессия завершена",
-    });
+    // Перенаправляем на страницу входа Atlas
+    window.location.href = 'https://atlas.appweb.space/logout?redirect=' +
+      encodeURIComponent(window.location.origin + '/login');
   };
 
   const columns = [

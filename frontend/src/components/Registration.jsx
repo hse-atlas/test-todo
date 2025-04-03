@@ -1,62 +1,23 @@
-import { Button, Form, Input, notification } from 'antd';
-import { useNavigate } from 'react-router-dom';
-import axios from "axios";
+// components/Registration.js
+import AuthIframe from './AuthIframe';
 
-const Registration = ({ onRegister }) => { // Добавляем деструктуризацию пропсов
-  const navigate = useNavigate();
-
-  const onFinish = async (values) => {
-    try {
-      await axios.post('/api/register', {
-        username: values.username,
-        password: values.password
-      });
-      
-      notification.success({
-        message: 'Registration Successful',
-        description: 'You can now login with your credentials',
-      });
-      
-      onRegister(); // Используем пропс напрямую
-      navigate('/login');
-    } catch (error) {
-      notification.error({
-        message: 'Registration Failed',
-        description: error.response?.data?.detail || 'Something went wrong',
-      });
-    }
-  };
-
-
+const Registration = ({ onRegister }) => {
   return (
-    <div style={{ maxWidth: 300, margin: '100px auto' }}>
-      <h2 style={{ textAlign: 'center', marginBottom: 24 }}>Register</h2>
-      <Form onFinish={onFinish}>
-        <Form.Item
-          name="username"
-          rules={[{ required: true, message: 'Please input your username!' }]}
-        >
-          <Input placeholder="Username" />
-        </Form.Item>
-
-        <Form.Item
-          name="password"
-          rules={[{ required: true, message: 'Please input your password!' }]}
-        >
-          <Input.Password placeholder="Password" />
-        </Form.Item>
-
-        <Form.Item>
-          <Button type="primary" htmlType="submit" block>
-            Register
-          </Button>
-        </Form.Item>
-      </Form>
-      <div style={{ textAlign: 'center' }}>
-        Already have an account? <a href="/login">Login now!</a>
-      </div>
+    <div style={{
+      maxWidth: 400,
+      margin: '100px auto',
+      padding: 20,
+      background: '#fff',
+      borderRadius: 8,
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+    }}>
+      <h2 style={{ textAlign: 'center', marginBottom: 24 }}>Register with Atlas</h2>
+      <AuthIframe
+        projectId="1"
+        mode="register"
+      />
     </div>
   );
-}
+};
 
 export default Registration;

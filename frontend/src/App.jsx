@@ -62,8 +62,14 @@ function App() {
     <Layout style={{ minHeight: '100vh' }}>
       <Content style={{ padding: '20px 50px' }}>
         <Routes>
-          <Route path="/login" element={<Login onLogin={() => updateAuthStatus(true)} />} />
-          <Route path="/register" element={<Registration onRegister={() => updateAuthStatus(true)} />} />
+          <Route
+            path="/login"
+            element={<Login onLogin={() => updateAuthStatus(true)} />}
+          />
+          <Route
+            path="/register"
+            element={<Registration onRegister={() => updateAuthStatus(true)} />}
+          />
           <Route
             path="/"
             element={
