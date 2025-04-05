@@ -7,31 +7,54 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
       - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.le.acme.email=
+      - --certificatesresolvers.le.acme.email=atlas.auth.help@gmail.com
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.le.acme.tlschallenge=true
+      - --api.insecure=true
+      - --log.level=DEBUG
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080" # Dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./letsencrypt:/letsencrypt
     networks:
       - app-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.todo.appweb.space`)
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=le
+      - traefik.http.routers.traefik.middlewares=traefik-auth
+      - traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$9Cv/OMGj$$ZomWQzuQbL.3TRCS81A1g/
 
   web:
     build: ./app
     environment:
-      DATABASE_URL: 
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/todo_db
     networks:
       - app-network
     labels:
       - traefik.enable=true
-      - traefik.http.routers.web.rule=Host(``) && PathPrefix(`/api`)
+      - traefik.http.routers.web.rule=Host(`todo.appweb.space`) && PathPrefix(`/api`)
       - traefik.http.routers.web.entrypoints=websecure
       - traefik.http.routers.web.tls.certresolver=le
       - traefik.http.services.web.loadbalancer.server.port=8888
+      - traefik.http.middlewares.web-headers.headers.customrequestheaders.X-Forwarded-Proto=https
+      - traefik.http.middlewares.web-headers.headers.sslredirect=true
+      - traefik.http.middlewares.web-headers.headers.stsSeconds=31536000
+      - traefik.http.middlewares.web-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.web-headers.headers.stsPreload=true
+      - traefik.http.middlewares.web-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.web-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.web-headers.headers.frameDeny=true
+      - traefik.http.middlewares.web-headers.headers.referrerPolicy=same-origin
+      - traefik.http.routers.web.middlewares=web-headers
 
   frontend:
     build: ./frontend
@@ -39,10 +62,20 @@ services:
       - app-network
     labels:
       - traefik.enable=true
-      - traefik.http.routers.frontend.rule=Host(``)
+      - traefik.http.routers.frontend.rule=Host(`todo.appweb.space`)
       - traefik.http.routers.frontend.entrypoints=websecure
       - traefik.http.routers.frontend.tls.certresolver=le
       - traefik.http.services.frontend.loadbalancer.server.port=80
+      - traefik.http.middlewares.frontend-headers.headers.customrequestheaders.X-Forwarded-Proto=https
+      - traefik.http.middlewares.frontend-headers.headers.sslredirect=true
+      - traefik.http.middlewares.frontend-headers.headers.stsSeconds=31536000
+      - traefik.http.middlewares.frontend-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.frontend-headers.headers.stsPreload=true
+      - traefik.http.middlewares.frontend-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.frontend-headers.headers.browserXssFilter=true
+      - traefik.http.middlewares.frontend-headers.headers.frameDeny=true
+      - traefik.http.middlewares.frontend-headers.headers.referrerPolicy=same-origin
+      - traefik.http.routers.frontend.middlewares=frontend-headers
 
   db:
     image: postgres:13-alpine
@@ -59,10 +92,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
+  
 networks:
   app-network:
     name: todo_network
+  
 
 volumes:
   postgres_todo_data:

@@ -12,7 +12,6 @@ import {
   Switch,
 } from "antd";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
-
 import { useEffect, useState } from "react";
 import {
   getTasks,
@@ -64,8 +63,8 @@ export default function TodoList() {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchUserData(); // Сначала загружаем данные пользователя
-      await fetchTasks(); // Затем загружаем задачи
+      await fetchUserData();
+      await fetchTasks();
     };
     loadData();
   }, []);
@@ -99,9 +98,8 @@ export default function TodoList() {
         description: "Задача успешно изменена",
       });
       await fetchTasks();
-      setEditingTask(null); // Сбрасываем редактирование
+      setEditingTask(null);
     } catch (error) {
-      // Обработка ошибок
     }
   };
   const handleDeleteTask = async (id) => {
@@ -126,9 +124,8 @@ export default function TodoList() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
 
-    // Перенаправляем на страницу входа Atlas
-    window.location.href = 'https://atlas.appweb.space/logout?redirect=' +
-      encodeURIComponent(window.location.origin + '/login');
+    window.location.href = '/login';
+
   };
 
   const columns = [
