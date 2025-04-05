@@ -1,5 +1,6 @@
+from pydantic import BaseModel, EmailStr
 from typing import Optional
-from pydantic import BaseModel
+import uuid
 
 class Token(BaseModel):
     access_token: str
@@ -16,33 +17,36 @@ class TaskBase(BaseModel):
 class TaskCreate(TaskBase):
     pass
 
-class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    completed: Optional[bool] = None
+class TaskUpdate(TaskBase):
+    pass
 
 class Task(TaskBase):
     id: int
-    user_id: int
+    user_id: uuid.UUID  # Обновляем тип
 
     class Config:
         from_attributes = True
 
 class UserBase(BaseModel):
     username: str
+    email: EmailStr  # Добавляем email
 
 class UserCreate(UserBase):
-    password: str
+    password: Optional[str] = None  # Пароль не обязателен для Atlas users
+    atlas_user_id: Optional[str] = None  # ID из Atlas
 
 class User(UserBase):
-    username: str
-    id: int
+    id: uuid.UUID
+    is_atlas_user: bool
 
     class Config:
         from_attributes = True
 
 class UserResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     username: str
+    email: str
+    is_atlas_user: bool
 
     class Config:
         from_attributes = True
@@ -50,3 +54,8 @@ class UserResponse(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+class AtlasUserCreate(BaseModel):
+    atlas_user_id: str
+    username: str
+    email: str
