@@ -31,9 +31,10 @@ class UserBase(BaseModel):
     username: str
     email: EmailStr  # Добавляем email
 
-class UserCreate(UserBase):
-    password: Optional[str] = None  # Пароль не обязателен для Atlas users
-    atlas_user_id: Optional[str] = None  # ID из Atlas
+class UserCreate(BaseModel):
+    external_user_id: int  # Обязательный внешний ID
+    username: str
+    email: EmailStr
 
 class User(UserBase):
     id: uuid.UUID

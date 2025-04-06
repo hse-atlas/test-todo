@@ -6,13 +6,11 @@ import uuid
 class User(Base):
     __tablename__ = "users"
     
-    # Изменяем id на UUID для совместимости с внешними системами
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    atlas_user_id = Column(String, unique=True, index=True)  # ID из Atlas
+    external_user_id = Column(Integer, unique=True)
     username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)  # Добавляем email
-    hashed_password = Column(String, nullable=True)  # Может быть NULL для Atlas users
-    is_atlas_user = Column(Boolean, default=False)  # Флаг Atlas пользователя
+    email = Column(String, unique=True, index=True)
+    # Удаляем hashed_password, так как он больше не нужен
     
     tasks = relationship("Task", back_populates="owner")
 

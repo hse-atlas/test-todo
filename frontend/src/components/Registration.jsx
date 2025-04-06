@@ -13,7 +13,7 @@ const Registration = ({ onRegister }) => {
     }}>
       <h2 style={{ textAlign: 'center', marginBottom: 24 }}>Register with Atlas</h2>
       <AuthIframe
-        projectId="1"
+        projectId="8eafa7c7-6685-43c4-b341-4bf95c5680d9"
         mode="register"
       />
     </div>

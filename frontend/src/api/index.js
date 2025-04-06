@@ -13,7 +13,7 @@ export const register = async (credentials) => {
 };
 
 export const getUserMe = (token) =>
-  api.get("/user/me", {
+  api.get("/profile", {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { register as registerLocalUser } from '../api'; // Импортируем ваш метод регистрации
+import { register as registerLocalUser } from '../api';
 
 const AuthIframe = ({ projectId, mode = 'login' }) => {
     const [iframeHeight, setIframeHeight] = useState(400);
@@ -10,43 +10,64 @@ const AuthIframe = ({ projectId, mode = 'login' }) => {
         const handleMessage = async (event) => {
             if (event.origin !== 'https://atlas.appweb.space') return;
 
+            console.log('Received message:', event.data);
+
             if (event.data.type === 'ATLAS_IFRAME_HEIGHT') {
                 setIframeHeight(event.data.height);
+                return;
             }
 
-            if (event.data.type === 'ATLAS_AUTH_SUCCESS') {
-                setIsProcessing(true);
-                try {
-                    const { access_token, refresh_token, user } = event.data.tokens;
+            setIsProcessing(true);
 
-                    // Сохраняем токены
-                    localStorage.setItem('access_token', access_token);
-                    localStorage.setItem('refresh_token', refresh_token);
+            try {
+                // Обработка входа (логина)
+                if (event.data.type === 'ATLAS_AUTH_SUCCESS') {
+                    const { tokens } = event.data;
 
-                    // Если это регистрация - создаем пользователя в локальной БД
-                    if (mode === 'register' && user) {
-                        await registerLocalUser({
-                            atlas_user_id: user.id, // ID из Atlas
-                            email: user.email,
-                            username: user.username,
-                            // Другие необходимые поля
-                        });
+                    if (!tokens?.access_token || !tokens?.refresh_token) {
+                        throw new Error('Invalid tokens structure');
                     }
 
-                    // Перенаправляем на главную
+                    localStorage.setItem('access_token', tokens.access_token);
+                    localStorage.setItem('refresh_token', tokens.refresh_token);
+
+                    console.log('Login successful, tokens saved');
                     window.location.href = '/';
-                } catch (error) {
-                    console.error('Ошибка обработки авторизации:', error);
-                    // Можно добавить отображение ошибки пользователю
-                } finally {
-                    setIsProcessing(false);
                 }
+
+                // Обработка регистрации
+                else if (event.data.type === 'ATLAS_REGISTER_SUCCESS') {
+                    const { user } = event.data;
+
+                    if (!user?.id || !user?.email) {
+                        throw new Error('Invalid user data structure');
+                    }
+
+                    console.log('Registering user:', user);
+
+                    await registerLocalUser({
+                        external_user_id: user.id,
+                        email: user.email,
+                        username: user.username || ''
+                    });
+
+                    console.log('Local registration completed');
+                    window.location.href = '/';
+                }
+                else {
+                    console.warn('Unknown message type:', event.data.type);
+                }
+            } catch (error) {
+                console.error('Processing error:', error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                setIsProcessing(false);
             }
         };
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [mode]);
+    }, []); // Убрали mode из зависимостей, так как он не используется в обработчике
 
     return (
         <div style={{ position: 'relative' }}>
@@ -63,7 +84,7 @@ const AuthIframe = ({ projectId, mode = 'login' }) => {
                     alignItems: 'center',
                     zIndex: 10
                 }}>
-                    <div>Завершаем регистрацию...</div>
+                    <div>{mode === 'login' ? 'Logging in...' : 'Completing registration...'}</div>
                 </div>
             )}
             <iframe
@@ -77,7 +98,7 @@ const AuthIframe = ({ projectId, mode = 'login' }) => {
                     opacity: isProcessing ? 0.5 : 1
                 }}
                 scrolling="no"
-                title={`Atlas ${mode === 'login' ? 'Вход' : 'Регистрация'}`}
+                title={`Atlas ${mode === 'login' ? 'Login' : 'Registration'}`}
             />
         </div>
     );
