@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
   traefik:
     image: traefik:v2.10
+    container_name: traefik
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
@@ -18,12 +17,17 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080" # Dashboard
+      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./letsencrypt:/letsencrypt
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     labels:
       - traefik.enable=true
       - traefik.http.routers.traefik.rule=Host(`traefik.todo.appweb.space`)
@@ -34,11 +38,22 @@ services:
       - traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$9Cv/OMGj$$ZomWQzuQbL.3TRCS81A1g/
 
   web:
-    build: ./app
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: backend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/todo_db
     networks:
       - app-network
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
     labels:
       - traefik.enable=true
       - traefik.http.routers.web.rule=Host(`todo.appweb.space`) && PathPrefix(`/api`)
@@ -57,9 +72,19 @@ services:
       - traefik.http.routers.web.middlewares=web-headers
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
     networks:
       - app-network
+    depends_on:
+      - web
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     labels:
       - traefik.enable=true
       - traefik.http.routers.frontend.rule=Host(`todo.appweb.space`)
@@ -79,6 +104,7 @@ services:
 
   db:
     image: postgres:13-alpine
+    container_name: database
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -87,16 +113,21 @@ services:
       - postgres_todo_data:/var/lib/postgresql/data
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d todo_db"]
       interval: 5s
       timeout: 5s
       retries: 10
-  
+
 networks:
   app-network:
     name: todo_network
-  
+    driver: bridge
 
 volumes:
   postgres_todo_data:

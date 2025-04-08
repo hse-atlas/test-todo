@@ -93,8 +93,6 @@ const AuthIframe = ({ projectId, mode = 'login' }) => {
                     width: '100%',
                     height: `${iframeHeight}px`,
                     border: 'none',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                     opacity: isProcessing ? 0.5 : 1
                 }}
                 scrolling="no"

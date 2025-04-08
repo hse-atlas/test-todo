@@ -33,7 +33,6 @@ export default function TodoList() {
   const fetchUserData = async () => {
     try {
       const accessToken = localStorage.getItem("access_token");
-      console.log(accessToken);  // Убедитесь, что токен есть 
       const response = await getUserMe(accessToken);
       setUserData(response.data);
     } catch (error) {
@@ -49,7 +48,6 @@ export default function TodoList() {
     setLoading(true);
     try {
       const accessToken = localStorage.getItem("access_token");
-      console.log(accessToken);  // Убедитесь, что токен есть 
       const response = await getTasks(accessToken);
       setTasks(response.data);
     } catch (error) {
