@@ -14,7 +14,7 @@ services:
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.le.acme.tlschallenge=true
       - --api.insecure=true
-      - --log.level=DEBUG
+      - --log.level=INFO
     ports:
       - "80:80"
       - "443:443"

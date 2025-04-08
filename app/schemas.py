@@ -38,7 +38,6 @@ class UserCreate(BaseModel):
 
 class User(UserBase):
     id: uuid.UUID
-    is_atlas_user: bool
 
     class Config:
         from_attributes = True
@@ -47,7 +46,6 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
     email: str
-    is_atlas_user: bool
 
     class Config:
         from_attributes = True

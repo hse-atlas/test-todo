@@ -4,18 +4,23 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 from schemas import UserCreate, UserLogin, UserResponse  # Импортируем UserCreate и UserLogin
-from fastapi import Header
-
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 router = APIRouter(tags=["auth"])
 
-def get_current_user(token: str, db: Session = Depends(get_db)):
+security = HTTPBearer()
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
     try:
+        token = credentials.credentials
         # Декодируем JWT токен без проверки подписи
         payload = jwt.decode(token, options={"verify_signature": False})
 
         # Извлекаем external_user_id из payload
-        external_user_id = payload.get("external_user_id")
+        external_user_id = payload.get("sub")
 
         if not external_user_id:
             raise HTTPException(status_code=400, detail="Invalid token: external_user_id not found")
@@ -30,6 +35,7 @@ def get_current_user(token: str, db: Session = Depends(get_db)):
 
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
 
 
 @router.post("/register", response_model=UserResponse)
@@ -72,5 +78,5 @@ async def login(login_data: UserLogin, db: Session = Depends(get_db)):
     return user
 
 @router.get("/profile")
-async def get_profile(user: User = Depends(get_current_user)):
-    return {"user": user.username}
+async def get_profile(current_user: User = Depends(get_current_user)):
+    return {"user": current_user.username}

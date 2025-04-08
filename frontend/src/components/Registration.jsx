@@ -1,5 +1,6 @@
 // components/Registration.js
 import AuthIframe from './AuthIframe';
+import { Link } from 'react-router-dom';
 
 const Registration = ({ onRegister }) => {
   return (
@@ -16,6 +17,10 @@ const Registration = ({ onRegister }) => {
         projectId="8eafa7c7-6685-43c4-b341-4bf95c5680d9"
         mode="register"
       />
+      <div style={{ textAlign: 'center', marginTop: 16 }}>
+        Already have an account? <Link to="/login">Login</Link>
+      </div>
+
     </div>
   );
 };

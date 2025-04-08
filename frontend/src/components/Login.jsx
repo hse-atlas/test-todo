@@ -1,5 +1,6 @@
 // components/Login.js
 import AuthIframe from './AuthIframe';
+import { Link } from 'react-router-dom';
 
 const Login = ({ onLogin }) => {
   return (
@@ -16,6 +17,10 @@ const Login = ({ onLogin }) => {
         projectId="8eafa7c7-6685-43c4-b341-4bf95c5680d9"
         mode="login"
       />
+      <div style={{ textAlign: 'center', marginTop: 16 }}>
+        Don't have an account? <Link to="/register">Register</Link>
+      </div>
+
     </div>
   );
 };
