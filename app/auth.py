@@ -1,17 +1,23 @@
+# /app/auth.py
+
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status # Убедитесь, что status импортирован
 from sqlalchemy.orm import Session
-from database import get_db
-from database import get_db
-from models import User # Импортируем конкретную модель User
-import schemas 
-from schemas import UserCreate, UserLogin, UserResponse  # Импортируем UserCreate и UserLogin
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-router = APIRouter(tags=["auth"])
+# --- ИСПРАВЛЕННЫЕ ИМПОРТЫ ---
+# Импортируем напрямую из модулей в той же директории
+from database import get_db
+from models import User # Импортируем конкретную модель User
+import schemas         # Импортируем модуль schemas целиком
+# или можно импортировать конкретные схемы:
+# from schemas import UserCreate, UserLogin, UserResponse, Task, TaskCreate, TaskUpdate
+# -----------------------------
 
+router = APIRouter(tags=["auth"])
 security = HTTPBearer()
 
+# Функция get_current_user (без изменений, но убедитесь, что модель User импортирована выше)
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
@@ -19,32 +25,47 @@ def get_current_user(
     try:
         token = credentials.credentials
         # Декодируем JWT токен без проверки подписи
-        payload = jwt.decode(token, options={"verify_signature": False})
+        # ВНИМАНИЕ: В реальном приложении ЗДЕСЬ НУЖНО ПРОВЕРЯТЬ ПОДПИСЬ И СРОК ДЕЙСТВИЯ!
+        # Это просто пример для получения external_user_id из 'sub'
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False}) # Добавил verify_exp=False для простоты
 
-        # Извлекаем external_user_id из payload
-        external_user_id = payload.get("sub")
+        # Извлекаем external_user_id из payload (обычно поле 'sub')
+        external_user_id_str = payload.get("sub") # 'sub' обычно строка
 
-        if not external_user_id:
-            raise HTTPException(status_code=400, detail="Invalid token: external_user_id not found")
+        if not external_user_id_str:
+            raise HTTPException(status_code=401, detail="Invalid token: 'sub' claim not found") # Изменил код на 401
 
-        # Получаем пользователя по external_user_id
+        # --- ВАЖНОЕ ИЗМЕНЕНИЕ ТИПА ---
+        # Модель User ожидает external_user_id как Integer, а JWT 'sub' обычно строка
+        # Преобразуем строку в integer
+        try:
+            external_user_id = int(external_user_id_str)
+        except (ValueError, TypeError):
+             raise HTTPException(status_code=401, detail="Invalid token: 'sub' claim is not a valid integer")
+        # ----------------------------
+
+        # Получаем пользователя по external_user_id (теперь тип совпадает)
         user = db.query(User).filter(User.external_user_id == external_user_id).first()
 
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            # Пользователь с таким external_id не найден в нашей БД (возможно, токен валиден, но юзера нет)
+            raise HTTPException(status_code=404, detail="User associated with this token not found in DB") # Более точное сообщение
 
         return user
 
-    except jwt.PyJWTError:
+    except jwt.ExpiredSignatureError:
+         raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.PyJWTError as e:
+        print(f"JWT Decode Error: {e}") # Логирование ошибки
         raise HTTPException(status_code=401, detail="Invalid token")
-
+    except Exception as e: # Ловим другие возможные ошибки
+        print(f"Error in get_current_user: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during authentication")
 
 
 @router.post(
     "/register",
-    # Можно вернуть UserResponse и для обновления, и для создания
-    response_model=schemas.UserResponse,
-    # Добавляем статус-коды для документации Swagger/OpenAPI
+    response_model=schemas.UserResponse, # Используем схему из импортированного модуля
     responses={
         status.HTTP_200_OK: {"description": "User logged in or updated successfully"},
         status.HTTP_201_CREATED: {"description": "User created successfully"},
@@ -52,77 +73,72 @@ def get_current_user(
     }
 )
 async def register_or_login_oauth_user(
-    user_data: schemas.UserCreate, # Используем user_data как имя переменной
+    user_data: schemas.UserCreate, # Используем схему из импортированного модуля
     db: Session = Depends(get_db)
 ):
     # 1. Ищем пользователя по external_user_id
-    existing_user_by_external_id = db.query(models.User).filter(
-        models.User.external_user_id == user_data.external_user_id
+    # Используем User напрямую, т.к. импортировали его
+    existing_user_by_external_id = db.query(User).filter(
+        User.external_user_id == user_data.external_user_id
     ).first()
 
     if existing_user_by_external_id:
         # 2. Пользователь найден по external_id - это ЛОГИН или обновление данных
         print(f"User found by external_id: {user_data.external_user_id}. Updating...")
-        # Обновляем email и username на случай их изменения в Atlas
         existing_user_by_external_id.email = user_data.email
         existing_user_by_external_id.username = user_data.username
-        # Дополнительно можно обновлять last_login timestamp и т.д.
-
         db.commit()
         db.refresh(existing_user_by_external_id)
-        # Возвращаем 200 OK, т.к. пользователь уже существовал (логин/обновление)
-        # FastAPI автоматически установит код 200, если не указан другой при возврате
         return existing_user_by_external_id
 
     else:
         # 3. Пользователь с таким external_id НЕ найден. Проверяем email.
         print(f"User not found by external_id: {user_data.external_user_id}. Checking email: {user_data.email}")
-        existing_user_by_email = db.query(models.User).filter(
-            models.User.email == user_data.email
+        # Используем User напрямую
+        existing_user_by_email = db.query(User).filter(
+            User.email == user_data.email
         ).first()
 
         if existing_user_by_email:
-            # 4. Email уже занят ДРУГИМ пользователем (т.к. external_id не совпал)
+            # 4. Email уже занят ДРУГИМ пользователем
             print(f"Email {user_data.email} already exists for a different user.")
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, # Используем 409 Conflict
+                status_code=status.HTTP_409_CONFLICT,
                 detail=f"Email '{user_data.email}' is already registered. Please log in with the original method or use a different email.",
             )
         else:
             # 5. Ни external_id, ни email не найдены - это НОВАЯ РЕГИСТРАЦИЯ
             print(f"Creating new user for external_id: {user_data.external_user_id}")
-            new_user = models.User(
+            # Используем User напрямую
+            new_user = User(
                 external_user_id=user_data.external_user_id,
                 username=user_data.username,
                 email=user_data.email
-                # Можно добавить другие поля по умолчанию при создании
             )
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
-            # Возвращаем 201 Created (хотя FastAPI по умолчанию вернет 200, если модель совпадает)
-            # Чтобы явно вернуть 201, можно использовать Response(status_code=201) или настроить декоратор
-            # В данном случае возврат модели с кодом 200 тоже приемлем.
-            # Если хотите явно 201, можно сделать так в конце:
-            # from fastapi import Response
-            # return Response(content=schemas.UserResponse.from_orm(new_user).json(), status_code=status.HTTP_201_CREATED, media_type="application/json")
-            # Но проще оставить как есть, клиент получит 200 OK и данные.
             return new_user
 
-@router.post("/login", response_model=UserResponse)
-async def login(login_data: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        User.external_user_id == login_data.external_user_id
-    ).first()
+# Эндпоинт /login теперь, вероятно, не нужен, если вся аутентификация идет через /register (OAuth)
+# Если он все же нужен для какого-то другого потока, оставьте его, но убедитесь, что UserLogin и User импортированы
+# @router.post("/login", response_model=schemas.UserResponse)
+# async def login(login_data: schemas.UserLogin, db: Session = Depends(get_db)):
+#     user = db.query(User).filter(
+#         User.username == login_data.username # Обычно логин по username/email
+#     ).first()
+#     # Здесь должна быть проверка пароля (если это НЕ OAuth)
+#     if not user: # or not verify_password(login_data.password, user.hashed_password):
+#         raise HTTPException(
+#             status_code=401, # Используем 401 для неверных данных
+#             detail="Incorrect username or password",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     # Генерация токена (если это НЕ OAuth)
+#     # ...
+#     return user # Обычно возвращают токен, а не пользователя
 
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
-
-    return user
-
-@router.get("/profile")
+@router.get("/profile", response_model=schemas.UserResponse) # Возвращаем полную модель пользователя
 async def get_profile(current_user: User = Depends(get_current_user)):
-    return {"user": current_user.username}
+    # current_user уже является объектом User из БД благодаря get_current_user
+    return current_user
