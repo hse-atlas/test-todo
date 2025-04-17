@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { register as registerLocalUser } from '../api';
 
 const AuthIframe = ({ projectId, mode = 'login' }) => {
-    const [iframeHeight, setIframeHeight] = useState(400);
+    const [iframeHeight, setIframeHeight] = useState(600);
     const [isProcessing, setIsProcessing] = useState(false); // Состояние для индикации процесса
     const src = `https://atlas.appweb.space/embed/${mode}/${projectId}`;
     const atlasOrigin = 'https://atlas.appweb.space';

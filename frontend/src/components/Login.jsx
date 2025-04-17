@@ -14,7 +14,7 @@ const Login = ({ onLogin }) => {
     }}>
       <h2 style={{ textAlign: 'center', marginBottom: 24 }}>Login with Atlas</h2>
       <AuthIframe
-        projectId="4adfe5c1-96dc-47f7-97c0-07d3f44b2786"
+        projectId="672548b0-0211-4469-b8e2-5e39e5182ff3"
         mode="login"
       />
       <div style={{ textAlign: 'center', marginTop: 16 }}>
