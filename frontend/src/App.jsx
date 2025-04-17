@@ -1,171 +1,172 @@
+// App.jsx
+
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { Layout, Spin, notification } from 'antd'; // Добавили notification
+import { Layout, Spin, notification } from 'antd';
 import Login from './components/Login';
 import Registration from './components/Registration';
 import TodoList from './components/TodoList';
-import { register as saveUserToDb } from './api'; // Импортируем функцию API для сохранения пользователя
+import { register as saveUserToDb } from './api'; // Убедитесь, что импорт правильный
 
 const { Content } = Layout;
 
 function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuth, setIsAuth] = useState(false);
-  const navigate = useNavigate(); // Получаем функцию навигации
+  const navigate = useNavigate();
 
-  // Эффект 1: Проверка аутентификации при начальной загрузке (остается без изменений)
+  // Эффект 1: Проверка при загрузке (можно добавить больше логов)
   useEffect(() => {
-    const checkAuth = () => {
-      const accessToken = localStorage.getItem('access_token');
-      const refreshToken = localStorage.getItem('refresh_token');
+    console.log('[App] Running initial auth check...');
+    const accessToken = localStorage.getItem('access_token');
+    const refreshToken = localStorage.getItem('refresh_token');
+    console.log('[App] Tokens found:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken });
 
-      if (!accessToken || !refreshToken) {
-        setAuthChecked(true);
-        setIsAuth(false); // Убедимся, что isAuth = false если нет токенов
-        return;
-      }
+    if (!accessToken || !refreshToken) {
+      setAuthChecked(true);
+      setIsAuth(false);
+      console.log('[App] No tokens found or incomplete, auth check done.');
+      return;
+    }
 
-      try {
-        // Простая проверка срока действия access токена (без валидации подписи)
-        const decoded = JSON.parse(atob(accessToken.split('.')[1]));
-        const expiresAt = decoded.exp * 1000;
-        const isAuthenticated = Date.now() < expiresAt;
-        setIsAuth(isAuthenticated);
-        if (!isAuthenticated) {
-          // Если access токен истек, стоит удалить оба токена
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          console.log('Access token expired, cleared tokens.');
-        }
-      } catch (e) {
-        console.error("Error decoding token:", e);
+    try {
+      const decoded = JSON.parse(atob(accessToken.split('.')[1]));
+      const expiresAt = decoded.exp * 1000;
+      const now = Date.now();
+      const isAuthenticated = now < expiresAt;
+      console.log('[App] Token decoded:', { expiresAt: new Date(expiresAt), now: new Date(now), isAuthenticated });
+      setIsAuth(isAuthenticated);
+      if (!isAuthenticated) {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        setIsAuth(false);
-      } finally {
-        setAuthChecked(true);
+        console.log('[App] Access token expired, cleared tokens.');
       }
-    };
+    } catch (e) {
+      console.error("[App] Error decoding token during initial check:", e);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      setIsAuth(false);
+    } finally {
+      setAuthChecked(true);
+      console.log('[App] Initial auth check finished.');
+    }
+  }, []);
 
-    checkAuth();
-  }, []); // Пустой массив зависимостей - выполняется один раз при монтировании
-
-  // Эффект 2: Обработка сообщения об успешной аутентификации от AuthIframe
+  // Эффект 2: Обработка сообщения от AuthIframe
   useEffect(() => {
     const handleAuthComplete = async (event) => {
-      // Важно! Проверяем origin и тип сообщения
-      // Примечание: event.origin для сообщения от iframe к родителю будет origin родителя,
-      // поэтому проверять на atlasOrigin здесь не нужно, если iframe вызывает window.parent.postMessage
-      // Если вы используете event.source.postMessage, то origin будет origin iframe'а.
-      // Будем считать, что используется window.parent.postMessage.
-      // if (event.origin !== window.location.origin) return; // Проверка, что сообщение пришло "от себя"
-
+      // Проверяем тип сообщения
       if (event.data.type === 'ATLAS_AUTH_COMPLETE') {
-        console.log('App.jsx received ATLAS_AUTH_COMPLETE:', event.data);
-        const { tokens, user } = event.data;
+        console.log('[App] Received ATLAS_AUTH_COMPLETE from iframe:', event.data);
+        const { tokens, user } = event.data; // user МОЖЕТ БЫТЬ null
 
-        // 1. Сохраняем токены
-        localStorage.setItem('access_token', tokens.access_token);
-        localStorage.setItem('refresh_token', tokens.refresh_token);
-        console.log('Tokens saved to localStorage.');
+        // 1. Сохраняем токены (Эта часть должна теперь работать)
+        if (tokens?.access_token && tokens?.refresh_token) {
+          localStorage.setItem('access_token', tokens.access_token);
+          localStorage.setItem('refresh_token', tokens.refresh_token);
+          console.log('[App] Tokens saved to localStorage.');
+        } else {
+          console.error('[App] ATLAS_AUTH_COMPLETE received but tokens are missing!', event.data);
+          notification.error({ message: 'Authentication Error', description: 'Failed to receive tokens.' });
+          return; // Прерываем, если нет токенов
+        }
 
-        // 2. Отправляем данные пользователя на бэкенд для сохранения/обновления в БД
+
+        // 2. Отправляем данные пользователя на бэкенд, ТОЛЬКО ЕСЛИ ОНИ ЕСТЬ
         try {
-          await saveUserToDb({
-            external_user_id: user.id, // Убедитесь, что бэкенд ожидает эти поля
-            email: user.email,
-            username: user.username
-          });
-          console.log('User data sent to backend successfully.');
+          if (user && user.id && user.email) { // <-- ВАЖНАЯ ПРОВЕРКА
+            console.log('[App] User data received, sending to backend:', user);
+            await saveUserToDb({
+              external_user_id: user.id,
+              email: user.email,
+              username: user.username // username может быть пустым
+            });
+            console.log('[App] User data sent to backend successfully.');
+          } else {
+            console.log('[App] No user data in ATLAS_AUTH_COMPLETE (likely login), skipping backend save.');
+            // Здесь можно при необходимости вызвать GET /api/profile, чтобы получить
+            // данные пользователя, если они нужны сразу после логина.
+          }
 
-          // 3. Обновляем состояние аутентификации в приложении
+          // 3. Обновляем состояние аутентификации
           setIsAuth(true);
+          console.log('[App] Auth state set to true.');
 
-          // 4. Перенаправляем пользователя на главную страницу
+          // 4. Перенаправляем пользователя
           navigate('/');
-          notification.success({ // Опционально: уведомление об успехе
+          console.log('[App] Navigating to /');
+          notification.success({
             message: 'Login Successful',
-            description: 'Welcome back!',
+            description: 'Welcome!',
           });
 
         } catch (error) {
-          console.error('Error saving user data to backend:', error);
-          // Очищаем токены, если сохранение не удалось? Зависит от логики.
+          console.error('[App] Error saving user data to backend OR during navigation:', error);
+          // Очищаем токены, если что-то пошло не так после их сохранения
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          setIsAuth(false); // Сбрасываем состояние аутентификации
-
-          // Показываем ошибку пользователю
+          setIsAuth(false);
           notification.error({
-            message: 'Login Failed',
-            description: error.response?.data?.detail || 'Could not save user data. Please try again.',
+            message: 'Login/Registration Error',
+            description: error.response?.data?.detail || 'Failed to process authentication. Please try again.',
           });
-          // Не перенаправляем, оставляем пользователя на странице логина/регистрации
+          // Остаемся на странице логина/регистрации
         }
       }
     };
 
     window.addEventListener('message', handleAuthComplete);
-    // Очистка слушателя при размонтировании компонента
     return () => window.removeEventListener('message', handleAuthComplete);
+  }, [navigate]); // navigate в зависимостях
 
-  }, [navigate]); // Добавляем navigate в зависимости, т.к. он используется внутри эффекта
+  // ProtectedRoute и handleLogout без изменений
 
-  // Компонент ProtectedRoute (остается без изменений)
   const ProtectedRoute = ({ children }) => {
+    // ... (без изменений)
     if (!authChecked) {
-      // Показываем спиннер, пока идет начальная проверка токенов
       return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
           <Spin size="large" />
         </div>
       );
     }
-
     if (!isAuth) {
-      // Если проверка завершена и пользователь не аутентифицирован, перенаправляем на логин
       return <Navigate to="/login" replace />;
     }
-
-    // Если все проверки пройдены, рендерим дочерний компонент (TodoList)
     return children;
   };
 
-  // Функция updateAuthStatus больше не нужна для логина/регистрации,
-  // но может быть полезна для ручного выхода из системы (logout)
   const handleLogout = () => {
+    console.log('[App] Logging out...');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     setIsAuth(false);
-    navigate('/login'); // Используем navigate для выхода
+    navigate('/login');
     notification.info({ message: 'Logged Out', description: 'You have been logged out.' });
   };
 
-
+  // JSX разметка без изменений...
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Content style={{ padding: '20px 50px' }}>
         <Routes>
+          {/* ... Route определения ... */}
           <Route
             path="/login"
-            // Убираем onLogin, т.к. обработка идет через postMessage
             element={isAuth ? <Navigate to="/" /> : <Login />}
           />
           <Route
             path="/register"
-            // Убираем onRegister
             element={isAuth ? <Navigate to="/" /> : <Registration />}
           />
           <Route
             path="/"
             element={
               <ProtectedRoute>
-                {/* Передаем функцию logout в TodoList */}
                 <TodoList onLogout={handleLogout} />
               </ProtectedRoute>
             }
           />
-          {/* Можно добавить маршрут по умолчанию или 404 */}
           <Route path="*" element={<Navigate to={isAuth ? "/" : "/login"} replace />} />
         </Routes>
       </Content>
@@ -173,7 +174,7 @@ function App() {
   );
 }
 
-// WrappedApp остается без изменений
+// WrappedApp без изменений
 export default function WrappedApp() {
   return (
     <BrowserRouter>
