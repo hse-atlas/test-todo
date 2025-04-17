@@ -142,3 +142,17 @@ async def register_or_login_oauth_user(
 async def get_profile(current_user: User = Depends(get_current_user)):
     # current_user уже является объектом User из БД благодаря get_current_user
     return current_user
+
+
+@app.get("/proxy/atlas/user/me")
+async def get_atlas_user_profile(request: Request):
+    token = request.headers.get("Authorization")
+    if not token:
+        raise HTTPException(401, "Missing token")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://atlas.appweb.space/api/auth/user/me",
+            headers={"Authorization": token}
+        )
+        return response.json()

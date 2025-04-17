@@ -39,9 +39,8 @@ export const deleteTask = async (id, token) => {
   });
 };
 
-// Atlas API методы
 export const getAtlasUserProfile = (token) => {
-  return atlasApi.get("/auth/user/me", {
+  return localApi.get("/proxy/atlas/user/me", {  // Теперь запрос идет к вашему серверу
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
