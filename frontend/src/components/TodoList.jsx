@@ -18,7 +18,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
-  getUserMe,
+  getAtlasUserProfile,
 } from "../api";
 
 export default function TodoList({ onLogout }) {
@@ -33,7 +33,7 @@ export default function TodoList({ onLogout }) {
   const fetchUserData = async () => {
     try {
       const accessToken = localStorage.getItem("access_token");
-      const response = await getUserMe(accessToken);
+      const response = await getAtlasUserProfile(accessToken);
       setUserData(response.data);
     } catch (error) {
       notification.error({
