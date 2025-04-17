@@ -120,9 +120,9 @@ services:
           memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d todo_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 2s
+      timeout: 2s
+      retries: 5
 
 networks:
   app-network:
