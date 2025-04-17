@@ -26,7 +26,7 @@ const AuthIframe = ({ projectId, mode = 'login' }) => {
             }
 
             // Обработка успеха аутентификации/регистрации от Atlas
-            if (event.data.type === 'ATLAS_AUTH_SUCCESS' || event.data.type === 'ATLAS_REGISTER_SUCCESS') {
+            if (event.data.type === 'ATLAS_AUTH_SUCCESS') {
                 setIsProcessing(true);
                 const { tokens, user } = event.data;
 
