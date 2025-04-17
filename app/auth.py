@@ -2,7 +2,9 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from .. import models, schemas
+from database import get_db
+from models import User # Импортируем конкретную модель User
+import schemas 
 from schemas import UserCreate, UserLogin, UserResponse  # Импортируем UserCreate и UserLogin
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
