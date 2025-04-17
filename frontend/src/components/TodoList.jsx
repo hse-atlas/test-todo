@@ -170,7 +170,7 @@ export default function TodoList({ onLogout }) {
   return (
     <div style={{ padding: 20 }}>
       <Flex justify="space-between" align="center">
-        <h2>Приветствую {userData?.user || "Гость"}</h2>
+        <h2>Приветствую {userData?.username || "Гость"}</h2>
         <Space>
           <Button type="primary" onClick={() => setIsModalOpen(true)}>
             Add Task
