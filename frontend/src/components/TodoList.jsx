@@ -21,7 +21,7 @@ import {
   getUserMe,
 } from "../api";
 
-export default function TodoList() {
+export default function TodoList({ onLogout }) {
   const [tasks, setTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -120,14 +120,6 @@ export default function TodoList() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-
-    window.location.href = '/login';
-
-  };
-
   const columns = [
     {
       title: "Title",
@@ -186,7 +178,7 @@ export default function TodoList() {
           <Button
             type="default"
             danger
-            onClick={() => handleLogout()} // Обработчик выхода
+            onClick={onLogout} // Используем переданную функцию onLogout
           >
             Log out
           </Button>

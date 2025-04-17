@@ -4,9 +4,9 @@ const api = axios.create({
   baseURL: "/api", // Все запросы будут идти через /api
 });
 
-export const login = async (credentials) => {
-  return await api.post("/login", credentials);
-};
+//export const login = async (credentials) => {
+//  return await api.post("/login", credentials);
+//};
 
 export const register = async (credentials) => {
   return await api.post("/register", credentials);
