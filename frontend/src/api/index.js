@@ -1,77 +1,52 @@
 import axios from "axios";
 
-const api = axios.create({
-  baseURL: "/api", // Все запросы будут идти через /api
+// Клиент для локального API
+const localApi = axios.create({
+  baseURL: "/api",
 });
 
-//export const login = async (credentials) => {
-//  return await api.post("/login", credentials);
-//};
+// Клиент для внешнего Atlas API
+const atlasApi = axios.create({
+  baseURL: "https://atlas.appweb.space/api",
+});
 
+// Локальные методы API
 export const register = async (credentials) => {
-  return await api.post("/register", credentials);
+  return await localApi.post("/register", credentials);
 };
 
-export const getUserMe = (token) =>
-  api.get("/profile", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
 export const getTasks = async (token) => {
-  try {
-    const response = await api.get("/tasks", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return await localApi.get("/tasks", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 };
 
 export const createTask = async (task, token) => {
-  try {
-    const response = await api.post("/tasks", task, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return await localApi.post("/tasks", task, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 };
 
 export const updateTask = async (id, task, token) => {
-  try {
-    const response = await api.put(`/tasks/${id}`, task, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return await localApi.put(`/tasks/${id}`, task, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 };
 
 export const deleteTask = async (id, token) => {
-  try {
-    const response = await api.delete(`/tasks/${id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return await localApi.delete(`/tasks/${id}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 };
+
+// Atlas API методы
+export const getAtlasUserProfile = (token) => {
+  return atlasApi.get("/auth/user/me", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    }
+  });
+};
+
+// Можно добавить другие методы для Atlas API по аналогии
