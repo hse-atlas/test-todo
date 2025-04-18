@@ -1,7 +1,8 @@
 # /app/auth.py
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status # Убедитесь, что status импортирован
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -144,7 +145,7 @@ async def get_profile(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@app.get("/proxy/atlas/user/me")
+@router.get("/proxy/atlas/user/me")
 async def get_atlas_user_profile(request: Request):
     token = request.headers.get("Authorization")
     if not token:
