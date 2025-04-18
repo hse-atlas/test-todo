@@ -22,39 +22,30 @@ class TaskUpdate(TaskBase):
 
 class Task(TaskBase):
     id: int
-    user_id: uuid.UUID  # Обновляем тип
+    user_id: uuid.UUID
 
     class Config:
         from_attributes = True
 
-class UserBase(BaseModel):
-    username: str
-    email: EmailStr  # Добавляем email
+class AtlasUserResponse(BaseModel):
+    id: int
+    login: str
+    email: EmailStr
+    oauth_provider: str
+    project_id: uuid.UUID
+    role: str
+    status: str
 
 class UserCreate(BaseModel):
-    external_user_id: int  # Обязательный внешний ID
+    external_user_id: int
     username: str
     email: EmailStr
-
-class User(UserBase):
-    id: uuid.UUID
-
-    class Config:
-        from_attributes = True
 
 class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
     email: str
+    external_user_id: int
 
     class Config:
         from_attributes = True
-
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-class AtlasUserCreate(BaseModel):
-    atlas_user_id: str
-    username: str
-    email: str

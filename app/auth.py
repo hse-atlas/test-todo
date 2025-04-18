@@ -9,6 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 # --- ИСПРАВЛЕННЫЕ ИМПОРТЫ ---
 # Импортируем напрямую из модулей в той же директории
 from database import get_db
+import models
 from models import User # Импортируем конкретную модель User
 import schemas         # Импортируем модуль schemas целиком
 # или можно импортировать конкретные схемы:
@@ -64,96 +65,72 @@ def get_current_user(
         raise HTTPException(status_code=500, detail="Internal server error during authentication")
 
 
-@router.post(
-    "/register",
-    response_model=schemas.UserResponse, # Используем схему из импортированного модуля
-    responses={
-        status.HTTP_200_OK: {"description": "User logged in or updated successfully"},
-        status.HTTP_201_CREATED: {"description": "User created successfully"},
-        status.HTTP_409_CONFLICT: {"description": "Email already registered by another user"},
-    }
-)
+@router.get("/proxy/atlas/user/me", response_model=schemas.AtlasUserResponse)
+async def get_atlas_user_profile(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        raise HTTPException(status_code=401, detail="Authorization header missing")
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://atlas.appweb.space/api/auth/user/me",
+                headers={"Authorization": auth_header},
+                timeout=10.0
+            )
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Atlas API error: {e.response.text}"
+        )
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not connect to Atlas API: {str(e)}"
+        )
+
+@router.post("/register", response_model=schemas.UserResponse)
 async def register_or_login_oauth_user(
-    user_data: schemas.UserCreate, # Используем схему из импортированного модуля
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    atlas_user: schemas.AtlasUserResponse = Depends(get_atlas_user_profile)
 ):
-    # 1. Ищем пользователя по external_user_id
-    # Используем User напрямую, т.к. импортировали его
-    existing_user_by_external_id = db.query(User).filter(
-        User.external_user_id == user_data.external_user_id
+    # Преобразуем данные из Atlas в нашу схему UserCreate
+    user_data = schemas.UserCreate(
+        external_user_id=atlas_user.id,
+        username=atlas_user.login,
+        email=atlas_user.email
+    )
+
+    # Проверяем существующего пользователя по external_user_id
+    existing_user = db.query(models.User).filter(
+        models.User.external_user_id == user_data.external_user_id
     ).first()
 
-    if existing_user_by_external_id:
-        # 2. Пользователь найден по external_id - это ЛОГИН или обновление данных
-        print(f"User found by external_id: {user_data.external_user_id}. Updating...")
-        existing_user_by_external_id.email = user_data.email
-        existing_user_by_external_id.username = user_data.username
+    if existing_user:
+        # Обновляем данные существующего пользователя
+        existing_user.username = user_data.username
+        existing_user.email = user_data.email
         db.commit()
-        db.refresh(existing_user_by_external_id)
-        return existing_user_by_external_id
-
-    else:
-        # 3. Пользователь с таким external_id НЕ найден. Проверяем email.
-        print(f"User not found by external_id: {user_data.external_user_id}. Checking email: {user_data.email}")
-        # Используем User напрямую
-        existing_user_by_email = db.query(User).filter(
-            User.email == user_data.email
-        ).first()
-
-        if existing_user_by_email:
-            # 4. Email уже занят ДРУГИМ пользователем
-            print(f"Email {user_data.email} already exists for a different user.")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Email '{user_data.email}' is already registered. Please log in with the original method or use a different email.",
-            )
-        else:
-            # 5. Ни external_id, ни email не найдены - это НОВАЯ РЕГИСТРАЦИЯ
-            print(f"Creating new user for external_id: {user_data.external_user_id}")
-            # Используем User напрямую
-            new_user = User(
-                external_user_id=user_data.external_user_id,
-                username=user_data.username,
-                email=user_data.email
-            )
-            db.add(new_user)
-            db.commit()
-            db.refresh(new_user)
-            return new_user
-
-# Эндпоинт /login теперь, вероятно, не нужен, если вся аутентификация идет через /register (OAuth)
-# Если он все же нужен для какого-то другого потока, оставьте его, но убедитесь, что UserLogin и User импортированы
-# @router.post("/login", response_model=schemas.UserResponse)
-# async def login(login_data: schemas.UserLogin, db: Session = Depends(get_db)):
-#     user = db.query(User).filter(
-#         User.username == login_data.username # Обычно логин по username/email
-#     ).first()
-#     # Здесь должна быть проверка пароля (если это НЕ OAuth)
-#     if not user: # or not verify_password(login_data.password, user.hashed_password):
-#         raise HTTPException(
-#             status_code=401, # Используем 401 для неверных данных
-#             detail="Incorrect username or password",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
-#     # Генерация токена (если это НЕ OAuth)
-#     # ...
-#     return user # Обычно возвращают токен, а не пользователя
-
-@router.get("/profile", response_model=schemas.UserResponse) # Возвращаем полную модель пользователя
-async def get_profile(current_user: User = Depends(get_current_user)):
-    # current_user уже является объектом User из БД благодаря get_current_user
-    return current_user
-
-
-@router.get("/proxy/atlas/user/me")
-async def get_atlas_user_profile(request: Request):
-    token = request.headers.get("Authorization")
-    if not token:
-        raise HTTPException(401, "Missing token")
+        db.refresh(existing_user)
+        return existing_user
     
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://atlas.appweb.space/api/auth/user/me",
-            headers={"Authorization": token}
+    # Проверяем email на уникальность
+    if db.query(models.User).filter(models.User.email == user_data.email).first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered"
         )
-        return response.json()
+    
+    # Создаем нового пользователя
+    new_user = models.User(
+        external_user_id=user_data.external_user_id,
+        username=user_data.username,
+        email=user_data.email
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
