@@ -1,135 +1,161 @@
-// AuthIframe.jsx
-
 import React, { useState, useEffect } from 'react';
-// Импортируем функцию ТОЛЬКО для регистрации
-import { register as registerLocalUser } from '../api';
+import { Spin, message } from 'antd';
+import { registerOAuthUser } from '../api';
 
 const AuthIframe = ({ projectId, mode = 'login' }) => {
     const [iframeHeight, setIframeHeight] = useState(600);
-    const [isProcessing, setIsProcessing] = useState(false); // Состояние для индикации процесса
+    const [isProcessing, setIsProcessing] = useState(false);
     const src = `https://atlas.appweb.space/embed/${mode}/${projectId}`;
     const atlasOrigin = 'https://atlas.appweb.space';
 
+    const handleOAuthRegistration = async (userData) => {
+        setIsProcessing(true);
+        try {
+            // 1. Регистрируем пользователя через OAuth эндпоинт
+            const registeredUser = await registerOAuthUser({
+                external_user_id: userData.id,
+                email: userData.email,
+                username: userData.username || `user_${userData.id}`,
+                oauth_provider: userData.oauth_provider || 'unknown'
+            });
+
+            // 2. Отправляем успешный результат родительскому окну
+            window.parent.postMessage({
+                type: 'OAUTH_REGISTRATION_SUCCESS',
+                payload: {
+                    user: registeredUser,
+                    tokens: {
+                        access_token: registeredUser.access_token,
+                        refresh_token: registeredUser.refresh_token
+                    }
+                }
+            }, window.location.origin);
+
+        } catch (error) {
+            console.error('OAuth registration failed:', error);
+
+            // 3. Отправляем ошибку родительскому окну
+            window.parent.postMessage({
+                type: 'OAUTH_REGISTRATION_ERROR',
+                error: {
+                    message: error.response?.data?.message || 'Registration failed',
+                    details: error.response?.data?.details || error.message
+                }
+            }, window.location.origin);
+
+            message.error('OAuth registration failed. Please try again.');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleFormRegistration = async (userData) => {
+        setIsProcessing(true);
+        try {
+            // Здесь будет вызов API для обычной регистрации
+            // Это пример - реализуйте свой API вызов
+            window.parent.postMessage({
+                type: 'FORM_REGISTRATION_SUCCESS',
+                payload: userData
+            }, window.location.origin);
+
+        } catch (error) {
+            window.parent.postMessage({
+                type: 'FORM_REGISTRATION_ERROR',
+                error: {
+                    message: 'Form registration failed',
+                    details: error.message
+                }
+            }, window.location.origin);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     useEffect(() => {
         const handleMessage = async (event) => {
-            // Проверка origin
+            // Безопасная проверка origin
             if (event.origin !== atlasOrigin) {
-                console.warn('[AuthIframe] Message received from unexpected origin:', event.origin);
+                console.warn('Message from untrusted origin:', event.origin);
                 return;
             }
-            console.log('[AuthIframe] Received message from Atlas:', event.data);
 
-            // Обработка высоты iframe
+            console.log('Received message from Atlas:', event.data);
+
+            // Обработка изменения высоты iframe
             if (event.data.type === 'ATLAS_IFRAME_HEIGHT') {
                 setIframeHeight(event.data.height);
                 return;
             }
 
-            // === Обработка РЕГИСТРАЦИИ (ATLAS_REGISTER_SUCCESS) ===
-            // Логика остается прежней: вызвать локальный API и отправить postMessage для редиректа на /login
-            if (event.data.type === 'ATLAS_REGISTER_SUCCESS') {
-                setIsProcessing(true);
-                const { user } = event.data;
-
-                // Валидация данных пользователя
-                if (!user?.id || !user?.email) {
-                    console.error('[AuthIframe-Register] Invalid user data from Atlas.', event.data);
-                    alert('Registration failed: Essential user data not received.');
-                    setIsProcessing(false);
-                    return;
-                }
-
-                // Подготовка данных для локального API
-                const localApiUserData = {
-                    external_user_id: user.id,
-                    email: user.email,
-                    username: user.username || `user_${user.id}`
-                };
-
-                try {
-                    // Вызов локального API /register
-                    console.log('[AuthIframe-Register] Calling local backend /register:', localApiUserData);
-                    await registerLocalUser(localApiUserData);
-                    console.log('[AuthIframe-Register] Local registration OK.');
-
-                    // Отправка сообщения для редиректа на /login
-                    console.log('[AuthIframe-Register] Sending REDIRECT_TO_LOGIN to parent.');
-                    window.parent.postMessage({ type: 'REDIRECT_TO_LOGIN' }, window.location.origin);
-
-                } catch (error) {
-                    // Обработка ошибок локального API
-                    console.error('[AuthIframe-Register] Error calling local backend /register:', error);
-                    let errorDetail = 'Failed to register locally.';
-                    if (error.response) {
-                        errorDetail = error.response.data?.detail || `Local backend error: ${error.response.status}`;
-                        if (error.response.status === 409) {
-                            errorDetail = `This email (${localApiUserData.email}) is already registered. Try logging in or use a different email.`;
-                        }
-                    } else { errorDetail = error.message; }
-                    alert(`Registration Error: ${errorDetail}`);
-                    // Редирект на логин не происходит при ошибке
-                } finally {
-                    setIsProcessing(false);
-                }
+            // Обработка OAuth регистрации
+            if (event.data.type === 'ATLAS_OAUTH_REGISTER_SUCCESS') {
+                await handleOAuthRegistration(event.data.user);
+                return;
             }
-            // === Обработка ЛОГИНА (ATLAS_AUTH_SUCCESS) ===
-            // Теперь мы это сообщение полностью ИГНОРИРУЕМ.
-            // Бэкенд Atlas сам выполнит редирект родительского окна
-            // на URL с токенами в query-параметрах.
-            // App.jsx (через TokenHandler) подхватит эти параметры.
-            else if (event.data.type === 'ATLAS_AUTH_SUCCESS') {
-                console.log('[AuthIframe-Login] Received ATLAS_AUTH_SUCCESS message from Atlas. Ignoring it, as login is handled via URL redirect by Atlas backend.');
-                // Мы не отправляем postMessage отсюда.
-                // Можно включить индикатор загрузки, чтобы пользователь видел, что что-то происходит,
-                // пока бэкенд Atlas делает редирект.
-                setIsProcessing(true);
-                // Этот индикатор сам исчезнет при перезагрузке страницы из-за редиректа.
+
+            // Обработка обычной регистрации через форму
+            if (event.data.type === 'ATLAS_FORM_REGISTER_SUCCESS') {
+                await handleFormRegistration(event.data.user);
+                return;
             }
-            // === Обработка ошибок от Atlas (ATLAS_AUTH_ERROR) ===
-            else if (event.data.type === 'ATLAS_AUTH_ERROR') {
-                console.error('[AuthIframe] Atlas authentication error reported:', event.data.error);
-                alert(`Authentication failed via Atlas: ${event.data.error?.message || 'Unknown error'}`);
-                // Сбрасываем индикатор, если он был включен
-                setIsProcessing(false);
+
+            // Обработка успешного входа (OAuth или форма)
+            if (event.data.type === 'ATLAS_AUTH_SUCCESS') {
+                window.parent.postMessage({
+                    type: 'ATLAS_AUTH_COMPLETE',
+                    payload: event.data.tokens
+                }, window.location.origin);
+                return;
             }
-            // === Обработка неизвестных типов сообщений ===
-            // Игнорируем ATLAS_IFRAME_HEIGHT здесь, т.к. он обработан выше
-            else if (event.data.type !== 'ATLAS_IFRAME_HEIGHT') {
-                console.warn('[AuthIframe] Unknown message type received from Atlas:', event.data.type);
+
+            // Обработка ошибок
+            if (event.data.type === 'ATLAS_AUTH_ERROR') {
+                window.parent.postMessage({
+                    type: 'ATLAS_AUTH_ERROR',
+                    error: event.data.error
+                }, window.location.origin);
+                return;
             }
         };
 
         window.addEventListener('message', handleMessage);
-        // Очистка слушателя
         return () => window.removeEventListener('message', handleMessage);
-    }, []); // Пустой массив зависимостей, т.к. функции API и константы не меняются
+    }, []);
 
-    // --- JSX Рендеринг iframe ---
     return (
-        <div style={{ position: 'relative' }}>
-            {/* Индикатор загрузки/обработки */}
+        <div style={{ position: 'relative', width: '100%' }}>
             {isProcessing && (
                 <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(255,255,255,0.7)', display: 'flex',
-                    justifyContent: 'center', alignItems: 'center', zIndex: 10
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1000
                 }}>
-                    {/* Можно использовать Spin из Ant Design */}
-                    <div>Processing...</div>
+                    <Spin size="large" tip="Processing..." />
                 </div>
             )}
-            {/* Iframe */}
+
             <iframe
                 src={src}
                 style={{
                     width: '100%',
                     height: `${iframeHeight}px`,
                     border: 'none',
-                    // Можно немного затемнить iframe во время обработки
-                    opacity: isProcessing ? 0.6 : 1
+                    borderRadius: '8px',
+                    opacity: isProcessing ? 0.7 : 1,
+                    transition: 'opacity 0.3s ease'
                 }}
                 scrolling="no"
                 title={`Atlas ${mode === 'login' ? 'Login' : 'Registration'}`}
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
             />
         </div>
     );

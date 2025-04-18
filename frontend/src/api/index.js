@@ -5,14 +5,22 @@ const localApi = axios.create({
   baseURL: "/api",
 });
 
-// Клиент для внешнего Atlas API
-const atlasApi = axios.create({
-  baseURL: "https://atlas.appweb.space/api",
-});
 
-// Локальные методы API
-export const register = async (credentials) => {
-  return await localApi.post("/register", credentials);
+// Для обычной регистрации через форму
+export const registerLocalUser = async (userData) => {
+  const response = await localApi.post('/register/local', userData);
+  return response.data;
+};
+
+// Для OAuth регистрации через Atlas
+export const registerOAuthUser = async (userData) => {
+  const response = await localApi.post('/register/oauth', {
+    external_user_id: userData.id,
+    email: userData.email,
+    username: userData.username || `user_${userData.id}`,
+    oauth_provider: userData.oauth_provider || 'unknown'
+  });
+  return response.data;
 };
 
 export const getTasks = async (token) => {
@@ -48,4 +56,9 @@ export const getAtlasUserProfile = (token) => {
   });
 };
 
-// Можно добавить другие методы для Atlas API по аналогии
+export const verifyToken = async (token) => {
+  const response = await axios.get('/verify-token', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
+};

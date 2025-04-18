@@ -4,82 +4,106 @@ import { Layout, Spin, notification } from 'antd';
 import Login from './components/Login';
 import Registration from './components/Registration';
 import TodoList from './components/TodoList';
-import { getAtlasUserProfile, register } from './api';
+import { registerOAuthUser, login, registerLocalUser } from './api';
 
 const { Content } = Layout;
 
 function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuth, setIsAuth] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Проверка токенов при загрузке
+  // Проверка аутентификации при загрузке
   useEffect(() => {
-    const checkAuth = async () => {
-      const params = new URLSearchParams(location.search);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
+    const token = localStorage.getItem('access_token');
+    setIsAuth(!!token);
+    setAuthChecked(true);
+  }, []);
 
-      if (accessToken && refreshToken) {
-        localStorage.setItem('access_token', accessToken);
-        localStorage.setItem('refresh_token', refreshToken);
-        window.history.replaceState({}, '', location.pathname);
-        setIsAuth(true);
-      } else {
-        const storedToken = localStorage.getItem('access_token');
-        setIsAuth(!!storedToken);
-      }
-      setAuthChecked(true);
-    };
+  // Обработка OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const atlasToken = params.get('access_token');
 
-    checkAuth();
+    if (atlasToken) {
+      handleOAuthCallback(atlasToken);
+      window.history.replaceState({}, '', location.pathname);
+    }
   }, [location]);
 
-  // Обработка успешной авторизации
-  useEffect(() => {
-    if (!isAuth || isRegistering) return;
+  const handleOAuthCallback = async (atlasToken) => {
+    setIsProcessing(true);
+    try {
+      // 1. Регистрируем/логиним пользователя через OAuth
+      const { access_token } = await registerOAuthUser(atlasToken);
 
-    const handleAuth = async () => {
-      setIsRegistering(true);
-      try {
-        const token = localStorage.getItem('access_token');
-        const response = await getAtlasUserProfile(token);
-        const user = response.data;
+      // 2. Сохраняем наш токен
+      localStorage.setItem('access_token', access_token);
+      setIsAuth(true);
+      navigate('/');
 
-        await register({
-          email: user.email,
-          password: `oauth-${Math.random().toString(36).slice(2)}`,
-          name: user.name || user.email.split('@')[0]
-        });
+      notification.success({
+        message: 'Successfully logged in via OAuth'
+      });
 
-        navigate('/');
-      } catch (error) {
-        console.error('Auth error:', error);
-        notification.error({
-          message: 'Auth Failed',
-          description: error.response?.data?.message || 'Failed to authenticate'
-        });
-        handleLogout();
-      } finally {
-        setIsRegistering(false);
-      }
-    };
+    } catch (error) {
+      notification.error({
+        message: 'OAuth Failed',
+        description: error.response?.data?.message || 'Authentication error'
+      });
+      navigate('/login');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-    handleAuth();
-  }, [isAuth, navigate]);
+  const handleLocalLogin = async (credentials) => {
+    setIsProcessing(true);
+    try {
+      const { access_token } = await login(credentials);
+      localStorage.setItem('access_token', access_token);
+      setIsAuth(true);
+      navigate('/');
+    } catch (error) {
+      notification.error({
+        message: 'Login Failed',
+        description: error.response?.data?.message || 'Invalid credentials'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleLocalRegister = async (userData) => {
+    setIsProcessing(true);
+    try {
+      await registerLocalUser(userData);
+      notification.success({
+        message: 'Registration Successful',
+        description: 'You can now log in using your credentials'
+      });
+      navigate('/login');
+    } catch (error) {
+      notification.error({
+        message: 'Registration Failed',
+        description: error.response?.data?.message || 'Registration error'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     setIsAuth(false);
     navigate('/login');
   };
 
   const ProtectedRoute = ({ children }) => {
-    if (!authChecked || isRegistering) {
-      return <Spin fullscreen tip={isRegistering ? "Finalizing login..." : "Loading..."} />;
+    if (!authChecked || isProcessing) {
+      return <Spin fullscreen tip="Loading..." />;
     }
     return isAuth ? children : <Navigate to="/login" replace />;
   };
@@ -88,8 +112,8 @@ function App() {
     <Layout style={{ minHeight: '100vh' }}>
       <Content>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Registration />} />
+          <Route path="/login" element={<Login onLogin={handleLocalLogin} />} />
+          <Route path="/register" element={<Registration onRegister={handleLocalRegister} />} />
           <Route
             path="/"
             element={
