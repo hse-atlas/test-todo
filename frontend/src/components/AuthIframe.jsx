@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { register as registerLocalUser } from '../api';
+import { registerUserInLocalDB } from '../api';
 
 const AuthIframe = ({ projectId, mode = 'login' }) => {
     const [iframeHeight, setIframeHeight] = useState(400);
@@ -45,7 +45,7 @@ const AuthIframe = ({ projectId, mode = 'login' }) => {
 
                     console.log('Registering user:', user);
 
-                    await registerLocalUser({
+                    await registerUserInLocalDB({
                         external_user_id: user.id,
                         email: user.email,
                         username: user.username || ''

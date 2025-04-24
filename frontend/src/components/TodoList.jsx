@@ -18,7 +18,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
-  getUserMe,
+  getLocalUserProfile,
 } from "../api";
 
 export default function TodoList() {
@@ -33,7 +33,7 @@ export default function TodoList() {
   const fetchUserData = async () => {
     try {
       const accessToken = localStorage.getItem("access_token");
-      const response = await getUserMe(accessToken);
+      const response = await getLocalUserProfile(accessToken);
       setUserData(response.data);
     } catch (error) {
       notification.error({
