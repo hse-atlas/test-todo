@@ -5,7 +5,7 @@ import Login from './components/Login';
 import Registration from './components/Registration';
 import TodoList from './components/TodoList';
 // Импортируем нужные функции из нашего обновленного api.js
-import { getAtlasUserMe, registerUserInLocalDB, getLocalUserProfile } from './api'; // Убедитесь, что путь './api' правильный
+import { getAtlasUserMe, registerUserInLocalDB, getLocalUserProfile } from './api/index'; // Убедитесь, что путь './api' правильный
 
 const { Content } = Layout;
 
