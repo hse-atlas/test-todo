@@ -10,19 +10,19 @@ const atlasApi = axios.create({
 });
 
 // Используется UserLoginEmbed для стандартного логина
-export const loginAtlasUser = (projectId, credentials) =>
+const loginAtlasUser = (projectId, credentials) =>
   atlasApi.post(`/auth/user/${projectId}/login`, credentials);
 
 // Используется UserRegisterEmbed для стандартной регистрации
-export const registerAtlasUser = (projectId, credentials) =>
+const registerAtlasUser = (projectId, credentials) =>
   atlasApi.post(`/auth/user/${projectId}/register`, credentials); // Добавлен projectId согласно использованию
 
 // Используется UserLoginEmbed для получения конфига OAuth
-export const getProjectOAuthConfig = (projectId) =>
+const getProjectOAuthConfig = (projectId) =>
   atlasApi.get(`/projects/${projectId}/oauth-config`);
 
 // !!! НОВАЯ/ОБНОВЛЕННАЯ !!! Используется в App.jsx после OAuth для получения инфо о пользователе из Atlas
-export const getAtlasUserMe = (atlasAccessToken) =>
+const getAtlasUserMe = (atlasAccessToken) =>
   atlasApi.get("/auth/user/me", {
     headers: { Authorization: `Bearer ${atlasAccessToken}` },
   });
@@ -35,14 +35,14 @@ const localApi = axios.create({
 });
 
 // !!! ОБНОВЛЕННАЯ !!! Используется TodoList.jsx для получения профиля из ЛОКАЛЬНОГО бэкенда
-export const getLocalUserProfile = (localAccessToken) =>
+const getLocalUserProfile = (localAccessToken) =>
   localApi.get("/profile", { // Предполагается, что локальный эндпоинт профиля - /profile
     headers: { Authorization: `Bearer ${localAccessToken}` }, // Предполагается, что локальный бэкенд использует Bearer токены
   });
 
 // !!! НОВАЯ/ОБНОВЛЕННАЯ !!! Используется App.jsx после получения данных из Atlas,
 // чтобы зарегистрировать/связать пользователя в ЛОКАЛЬНОЙ БД
-export const registerUserInLocalDB = async (userDataForLocalDB) => {
+const registerUserInLocalDB = async (userDataForLocalDB) => {
   // userDataForLocalDB должна соответствовать схеме UserCreate вашего локального бэкенда
   // { external_user_id, username, email }
   return localApi.post("/register", userDataForLocalDB); // Вызов эндпоинта регистрации ЛОКАЛЬНОГО бэкенда
@@ -50,15 +50,15 @@ export const registerUserInLocalDB = async (userDataForLocalDB) => {
 
 
 // Используется TodoList.jsx для операций с задачами
-export const getTasks = (localAccessToken) => localApi.get("/tasks", { headers: { Authorization: `Bearer ${localAccessToken}` } });
-export const createTask = (task, localAccessToken) => localApi.post("/tasks", task, { headers: { Authorization: `Bearer ${localAccessToken}` } });
-export const updateTask = (id, task, localAccessToken) => localApi.put(`/tasks/${id}`, task, { headers: { Authorization: `Bearer ${localAccessToken}` } });
-export const deleteTask = (id, localAccessToken) => localApi.delete(`/tasks/${id}`, { headers: { Authorization: `Bearer ${localAccessToken}` } });
+const getTasks = (localAccessToken) => localApi.get("/tasks", { headers: { Authorization: `Bearer ${localAccessToken}` } });
+const createTask = (task, localAccessToken) => localApi.post("/tasks", task, { headers: { Authorization: `Bearer ${localAccessToken}` } });
+const updateTask = (id, task, localAccessToken) => localApi.put(`/tasks/${id}`, task, { headers: { Authorization: `Bearer ${localAccessToken}` } });
+const deleteTask = (id, localAccessToken) => localApi.delete(`/tasks/${id}`, { headers: { Authorization: `Bearer ${localAccessToken}` } });
 
 // --- Вспомогательные функции ---
 
 // Используется компонентами embed
-export const isValidUUID = (uuid) => {
+const isValidUUID = (uuid) => {
   const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return regex.test(uuid);
 };
