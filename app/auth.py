@@ -5,6 +5,9 @@ from database import get_db
 from models import User
 from schemas import UserCreate, UserLogin, UserResponse  # Импортируем UserCreate и UserLogin
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import httpx
+
+ATLAS_API_URL = "https://atlas.appweb.space/api"
 
 router = APIRouter(tags=["auth"])
 
@@ -80,3 +83,29 @@ async def login(login_data: UserLogin, db: Session = Depends(get_db)):
 @router.get("/profile")
 async def get_profile(current_user: User = Depends(get_current_user)):
     return {"user": current_user.username}
+
+
+async def fetch_atlas_user_me(token: str):
+    """
+    Отправляет запрос к Atlas API для получения данных пользователя.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{ATLAS_API_URL}/auth/user/me", headers=headers)
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Error fetching user data from Atlas: {response.text}"
+            )
+        return response.json()
+    
+@router.get("/atlas-user")
+async def get_atlas_user_data(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Эндпоинт для получения данных пользователя из Atlas API.
+    """
+    token = credentials.credentials
+    user_data = await fetch_atlas_user_me(token)
+    return user_data
