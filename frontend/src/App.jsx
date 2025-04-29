@@ -1,13 +1,33 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Layout, Spin } from 'antd';
+import jwtDecode from 'jwt-decode';
 import Login from './components/Login';
 import Registration from './components/Registration';
 import TodoList from './components/TodoList';
-// Импортируем нужные функции из нашего обновленного api.js
+import AdminPage from './components/AdminPage';
 import { getAtlasUserData, registerUserInLocalDB, checkUserExists } from './api/index'; // Убедитесь, что путь './api' правильный
 
 const { Content } = Layout;
+
+const ProtectedRoute = ({ children, role }) => {
+  const token = localStorage.getItem("access_token");
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  try {
+    const decoded = jwtDecode(token);
+    if (role && decoded.usr_type !== role) {
+      return <Navigate to="/" replace />;
+    }
+  } catch (e) {
+    console.error("Invalid token:", e);
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
 
 function App() {
   const [authChecked, setAuthChecked] = useState(false); // Флаг завершения первичной проверки
@@ -94,26 +114,6 @@ function App() {
 
   }, [navigate]); // navigate используется внутри useEffect, поэтому добавляем его в зависимости
 
-  // Компонент для защиты маршрутов
-  const ProtectedRoute = ({ children }) => {
-    // Пока идет проверка аутентификации, показываем спиннер
-    if (!authChecked) {
-      return (
-        <Layout style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Spin size="large" tip="Loading authentication..." />
-        </Layout>
-      );
-    }
-
-    // Если проверка завершена и пользователь не аутентифицирован, перенаправляем на страницу логина
-    if (!isAuth) {
-      return <Navigate to="/login" replace />;
-    }
-
-    // Если аутентифицирован, отображаем содержимое защищенного маршрута
-    return children;
-  };
-
   // Функция updateAuthStatus может быть полезна, если вы хотите обновить статус
   // из других мест, например, при явном выходе пользователя.
   // При успешном OAuth или стандартном логине через iframe,
@@ -150,6 +150,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <TodoList onLogout={() => updateAuthStatus(false)} /> {/* Передаем onLogout для выхода */}
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Маршрут для админов */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute role="admin">
+                <AdminPage />
               </ProtectedRoute>
             }
           />

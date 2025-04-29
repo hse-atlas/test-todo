@@ -13,6 +13,8 @@ import {
 } from "antd";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import jwtDecode from "jwt-decode"; // Убедитесь, что библиотека jwt-decode установлена
 import {
   getTasks,
   createTask,
@@ -25,14 +27,23 @@ export default function TodoList() {
   const [tasks, setTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [userData, setUserData] = useState(null); // Добавляем состояние для данных пользователя
+  const [userData, setUserData] = useState(null); // Данные пользователя
+  const [userRole, setUserRole] = useState(null); // Роль пользователя
   const [form] = Form.useForm();
   const [editingTask, setEditingTask] = useState(null);
+  const navigate = useNavigate(); // Для навигации
 
   // Функция для загрузки данных пользователя
   const fetchUserData = async () => {
     try {
       const accessToken = localStorage.getItem("access_token");
+
+      // Декодируем токен и извлекаем роль пользователя
+      if (accessToken) {
+        const decodedToken = jwtDecode(accessToken);
+        setUserRole(decodedToken.usr_type); // Извлекаем роль из токена
+      }
+
       const response = await getLocalUserProfile(accessToken);
       setUserData(response.data);
     } catch (error) {
@@ -121,11 +132,9 @@ export default function TodoList() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-
-    window.location.href = '/login';
-
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    window.location.href = "/login";
   };
 
   const columns = [
@@ -183,11 +192,15 @@ export default function TodoList() {
           <Button type="primary" onClick={() => setIsModalOpen(true)}>
             Add Task
           </Button>
-          <Button
-            type="default"
-            danger
-            onClick={() => handleLogout()} // Обработчик выхода
-          >
+          {userRole === "admin" && ( // Условие отображения кнопки
+            <Button
+              type="default"
+              onClick={() => navigate("/admin")} // Переход на страницу администратора
+            >
+              Admin Page
+            </Button>
+          )}
+          <Button type="default" danger onClick={handleLogout}>
             Log out
           </Button>
         </Space>
