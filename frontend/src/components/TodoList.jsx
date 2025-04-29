@@ -14,7 +14,7 @@ import {
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import jwtDecode from "jwt-decode"; // Убедитесь, что библиотека jwt-decode установлена
+import { jwtDecode } from 'jwt-decode';
 import {
   getTasks,
   createTask,
