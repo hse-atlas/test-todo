@@ -109,3 +109,16 @@ async def get_atlas_user_data(
     token = credentials.credentials
     user_data = await fetch_atlas_user_me(token)
     return user_data
+
+@router.get("/check-user")
+async def check_user(
+    external_user_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Проверяет, существует ли пользователь в базе данных по external_user_id.
+    """
+    user = db.query(User).filter(User.external_user_id == external_user_id).first()
+    if user:
+        return {"exists": True}
+    return {"exists": False}
