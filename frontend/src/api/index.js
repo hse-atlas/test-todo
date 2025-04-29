@@ -15,6 +15,12 @@ const getAtlasUserData = (localAccessToken) =>
     headers: { Authorization: `Bearer ${localAccessToken}` },
   });
 
+// !!! НОВАЯ !!! Используется для проверки существования пользователя в ЛОКАЛЬНОЙ БД
+const checkUserExists = (externalUserId, localAccessToken) =>
+  localApi.get(`/check-user?external_user_id=${externalUserId}`, {
+    headers: { Authorization: `Bearer ${localAccessToken}` },
+  });
+
 // !!! ОБНОВЛЕННАЯ !!! Используется TodoList.jsx для получения профиля из ЛОКАЛЬНОГО бэкенда
 const getLocalUserProfile = (localAccessToken) =>
   localApi.get("/profile", { // Предполагается, что локальный эндпоинт профиля - /profile
@@ -47,7 +53,7 @@ const isValidUUID = (uuid) => {
 export {
   getAtlasUserData, // Для App.jsx (через локальный бэкенд)
   isValidUUID,
-
+  checkUserExists,
   getLocalUserProfile, // Для TodoList.jsx
   registerUserInLocalDB, // Для App.jsx (после получения данных из Atlas)
   getTasks,
