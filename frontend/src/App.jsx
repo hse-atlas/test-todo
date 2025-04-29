@@ -5,7 +5,7 @@ import Login from './components/Login';
 import Registration from './components/Registration';
 import TodoList from './components/TodoList';
 // Импортируем нужные функции из нашего обновленного api.js
-import { getAtlasUserMe, registerUserInLocalDB, getLocalUserProfile } from './api/index'; // Убедитесь, что путь './api' правильный
+import { getAtlasUserData, registerUserInLocalDB } from './api/index'; // Убедитесь, что путь './api' правильный
 
 const { Content } = Layout;
 
@@ -32,7 +32,7 @@ function App() {
           console.log('Atlas tokens saved locally');
 
           // 2. Получаем информацию о пользователе из Atlas, используя свежий access_token
-          const atlasUserResponse = await getAtlasUserMe(urlAccessToken);
+          const atlasUserResponse = await getAtlasUserData(urlAccessToken);
           const atlasUserData = atlasUserResponse.data; // Предполагается, что тут { id, email, login/username, ... }
 
           console.log('Fetched Atlas user info:', atlasUserData);
