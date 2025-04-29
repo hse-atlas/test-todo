@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Layout, Spin } from 'antd';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import Login from './components/Login';
 import Registration from './components/Registration';
 import TodoList from './components/TodoList';
