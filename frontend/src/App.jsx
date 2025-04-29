@@ -5,7 +5,7 @@ import Login from './components/Login';
 import Registration from './components/Registration';
 import TodoList from './components/TodoList';
 // Импортируем нужные функции из нашего обновленного api.js
-import { getAtlasUserData, registerUserInLocalDB } from './api/index'; // Убедитесь, что путь './api' правильный
+import { getAtlasUserData, registerUserInLocalDB, checkUserExists } from './api/index'; // Убедитесь, что путь './api' правильный
 
 const { Content } = Layout;
 
@@ -17,114 +17,76 @@ function App() {
   // Проверка аутентификации при загрузке (включая обработку токенов из URL)
   useEffect(() => {
     const handleAuthentication = async () => {
-      setAuthChecked(false); // Начинаем проверку/обработку
+      setAuthChecked(false);
       const params = new URLSearchParams(window.location.search);
-      const urlAccessToken = params.get('access_token'); // Токен из URL (вероятно, Atlas)
-      const urlRefreshToken = params.get('refresh_token'); // Рефреш-токен из URL (вероятно, Atlas)
+      const urlAccessToken = params.get('access_token');
+      const urlRefreshToken = params.get('refresh_token');
 
       if (urlAccessToken && urlRefreshToken) {
-        // Случай 1: Обнаружены токены в URL (после OAuth редиректа)
-        console.log('Found tokens in URL (likely from OAuth redirect)');
         try {
-          // 1. Сохраняем токены Atlas локально
-          localStorage.setItem('access_token', urlAccessToken); // Сохраняем токен Atlas
-          localStorage.setItem('refresh_token', urlRefreshToken); // Сохраняем рефреш-токен Atlas
-          console.log('Atlas tokens saved locally');
+          localStorage.setItem('access_token', urlAccessToken);
+          localStorage.setItem('refresh_token', urlRefreshToken);
 
-          // 2. Получаем информацию о пользователе из Atlas, используя свежий access_token
           const atlasUserResponse = await getAtlasUserData(urlAccessToken);
-          const atlasUserData = atlasUserResponse.data; // Предполагается, что тут { id, email, login/username, ... }
+          const atlasUserData = atlasUserResponse.data;
 
           console.log('Fetched Atlas user info:', atlasUserData);
 
-          // 3. Регистрируем или связываем пользователя в ЛОКАЛЬНОЙ БД
-          // Эндпоинт /api/register вашего локального бэкенда ожидает { external_user_id, username, email }
-          const userDataForLocalDB = {
-            external_user_id: String(atlasUserData.id), // ID пользователя из Atlas как внешний ID
-            email: atlasUserData.email,
-            username: atlasUserData.login || atlasUserData.username || `user-${atlasUserData.id}`, // Берем логин или имя из Atlas, или генерируем
-          };
+          // Проверяем, существует ли пользователь в локальной базе данных
+          const checkUserResponse = await checkUserExists(atlasUserData.id, urlAccessToken);
+          if (checkUserResponse.data.exists) {
+            console.log('User already exists in local DB');
+          } else {
+            // Если пользователь не существует, регистрируем его
+            const userDataForLocalDB = {
+              external_user_id: String(atlasUserData.id),
+              email: atlasUserData.email,
+              username: atlasUserData.login || atlasUserData.username || `user-${atlasUserData.id}`,
+            };
+            await registerUserInLocalDB(userDataForLocalDB);
+            console.log('User registered in local DB');
+          }
 
-          // Отправляем данные в эндпоинт локальной регистрации
-          await registerUserInLocalDB(userDataForLocalDB);
-          console.log('User registered/linked in local DB');
-
-          // 4. Очищаем URL от токенов для безопасности и чистоты
           window.history.replaceState({}, document.title, window.location.pathname);
-
-          // 5. Устанавливаем статус аутентификации как true
           setIsAuth(true);
-
-          // Навигация на '/' произойдет автоматически через ProtectedRoute
-
         } catch (error) {
           console.error('Error during OAuth processing or local registration:', error);
-          // Обработка ошибок на любом из этапов (получение инфо из Atlas, регистрация локально)
-          // Показываем сообщение пользователю
           alert(`Ошибка авторизации или регистрации: ${error.response?.data?.detail || error.message || error.toString()}`);
-
-          // Очищаем любые токены, которые могли быть сохранены частично
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          setIsAuth(false); // Устанавливаем статус неаутентифицирован
-
-          // Очищаем URL даже в случае ошибки
+          setIsAuth(false);
           window.history.replaceState({}, document.title, window.location.pathname);
-
-          // Перенаправляем на страницу логина в случае ошибки
           navigate('/login', { replace: true });
-
         } finally {
-          // В любом случае, проверка аутентификации завершена
           setAuthChecked(true);
         }
-
       } else {
-        // Случай 2: Токенов в URL нет, проверяем localStorage (обычная загрузка или редирект не после OAuth)
+        // Логика для проверки токенов в localStorage
         const storedAccessToken = localStorage.getItem('access_token');
         const storedRefreshToken = localStorage.getItem('refresh_token');
-
         if (storedAccessToken && storedRefreshToken) {
-          // Проверяем валидность токена из localStorage (хотя бы по сроку годности)
+          // Проверяем валидность токена
           try {
             const decoded = JSON.parse(atob(storedAccessToken.split('.')[1]));
             const expiresAt = decoded.exp * 1000;
             if (Date.now() < expiresAt) {
-              // Токен валиден - пытаемся получить локальный профиль,
-              // чтобы убедиться, что пользователь существует в локальной БД
-              // Это важно, т.к. токен Atlas может быть валиден, но пользователь
-              // может быть не зарегистрирован локально, если процесс регистрации
-              // после OAuth в прошлый раз был прерван.
-              // Или просто полагаемся на токен Atlas как индикатор аутентификации,
-              // если локальная регистрация не является строгим требованием для доступа.
-              // Для данной логики, где локальная регистрация нужна,
-              // лучше проверить наличие локального профиля.
-              // Однако, для простоты и если локальная регистрация происходит
-              // только один раз после первого OAuth входа, можно просто считать
-              // пользователя аутентифицированным на основании наличия токена Atlas.
-              // Выбираем более простой путь: наличие токена Atlas означает аутентификацию.
-              setIsAuth(true); // Токен Atlas из localStorage валиден по сроку
+              setIsAuth(true);
             } else {
-              // Токен Atlas из localStorage истек
-              console.log('Access token expired in localStorage, need re-login');
-              setIsAuth(false);
-              // Очищаем устаревшие токены
+              console.log('Access token expired');
               localStorage.removeItem('access_token');
               localStorage.removeItem('refresh_token');
-              // TODO: Можно добавить логику обновления токена Atlas здесь
+              setIsAuth(false);
             }
           } catch (e) {
-            console.error('Error decoding or checking stored token:', e);
-            // Ошибка декодирования или парсинга - токен некорректен
-            setIsAuth(false);
+            console.error('Error decoding token:', e);
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
+            setIsAuth(false);
           }
         } else {
-          // Нет токенов ни в URL, ни в localStorage
           setIsAuth(false);
         }
-        setAuthChecked(true); // Проверка localStorage завершена
+        setAuthChecked(true);
       }
     };
 
