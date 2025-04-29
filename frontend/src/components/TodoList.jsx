@@ -41,7 +41,7 @@ export default function TodoList() {
       // Декодируем токен и извлекаем роль пользователя
       if (accessToken) {
         const decodedToken = jwtDecode(accessToken);
-        setUserRole(decodedToken.usr_type); // Извлекаем роль из токена
+        setUserRole(decodedToken.role); // Извлекаем роль из токена
       }
 
       const response = await getLocalUserProfile(accessToken);
