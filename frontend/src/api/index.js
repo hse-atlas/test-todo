@@ -2,37 +2,18 @@
 
 import axios from "axios";
 
-// --- Atlas Backend API Calls (для авторизации/регистрации через Atlas) ---
-// Используются компонентами embed или напрямую в процессе OAuth
-
-const atlasApi = axios.create({
-  baseURL: "https://atlas.appweb.space/api", // Базовый URL для Atlas API
-});
-
-// Используется UserLoginEmbed для стандартного логина
-const loginAtlasUser = (projectId, credentials) =>
-  atlasApi.post(`/auth/user/${projectId}/login`, credentials);
-
-// Используется UserRegisterEmbed для стандартной регистрации
-const registerAtlasUser = (projectId, credentials) =>
-  atlasApi.post(`/auth/user/${projectId}/register`, credentials); // Добавлен projectId согласно использованию
-
-// Используется UserLoginEmbed для получения конфига OAuth
-const getProjectOAuthConfig = (projectId) =>
-  atlasApi.get(`/projects/${projectId}/oauth-config`);
-
-// !!! НОВАЯ/ОБНОВЛЕННАЯ !!! Используется в App.jsx после OAuth для получения инфо о пользователе из Atlas
-const getAtlasUserMe = (atlasAccessToken) =>
-  atlasApi.get("/auth/user/me", {
-    headers: { Authorization: `Bearer ${atlasAccessToken}` },
-  });
-
 // --- Local Todo Backend API Calls (для данных пользователя, задач и т.д.) ---
 // Используются родительскими компонентами (App.jsx, TodoList.jsx)
 
 const localApi = axios.create({
   baseURL: "/api", // Базовый URL для вашего локального бэкенда (предполагается проксирование)
 });
+
+// !!! НОВАЯ !!! Используется для получения данных пользователя из Atlas через локальный бэкенд
+const getAtlasUserData = (localAccessToken) =>
+  localApi.get("/atlas-user", {
+    headers: { Authorization: `Bearer ${localAccessToken}` },
+  });
 
 // !!! ОБНОВЛЕННАЯ !!! Используется TodoList.jsx для получения профиля из ЛОКАЛЬНОГО бэкенда
 const getLocalUserProfile = (localAccessToken) =>
@@ -47,7 +28,6 @@ const registerUserInLocalDB = async (userDataForLocalDB) => {
   // { external_user_id, username, email }
   return localApi.post("/register", userDataForLocalDB); // Вызов эндпоинта регистрации ЛОКАЛЬНОГО бэкенда
 };
-
 
 // Используется TodoList.jsx для операций с задачами
 const getTasks = (localAccessToken) => localApi.get("/tasks", { headers: { Authorization: `Bearer ${localAccessToken}` } });
@@ -65,10 +45,7 @@ const isValidUUID = (uuid) => {
 
 // Экспортируем все необходимые функции
 export {
-  loginAtlasUser,
-  registerAtlasUser,
-  getAtlasUserMe, // Для App.jsx (после OAuth)
-  getProjectOAuthConfig,
+  getAtlasUserData, // Для App.jsx (через локальный бэкенд)
   isValidUUID,
 
   getLocalUserProfile, // Для TodoList.jsx
